@@ -3,7 +3,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django import forms
 from django.utils import timezone
 from django.views import generic
-from .models import Post
+from .models import Post, Publisher, Book, Author
 from .forms import PostForm
 
 
@@ -19,14 +19,14 @@ class CommentForm(forms.Form):
         ('JR', 'Junior'),
         ('SR', 'Senior'),
         ('GR', 'Graduate'),
-    ], widget=forms.CheckboxSelectMultiple,)
+    ], widget=forms.CheckboxSelectMultiple, )
     tchoice = forms.TypedChoiceField(choices=[
-    ('FR', 'Freshman'),
-    ('SO', 'Sophomore'),
-    ('JR', 'Junior'),
-    ('SR', 'Senior'),
-    ('GR', 'Graduate'),
-])
+        ('FR', 'Freshman'),
+        ('SO', 'Sophomore'),
+        ('JR', 'Junior'),
+        ('SR', 'Senior'),
+        ('GR', 'Graduate'),
+    ])
     captcha_answer = forms.IntegerField(label='2 + 2', label_suffix=' =')
 
 
@@ -39,6 +39,12 @@ class IndexView(generic.ListView):
     def get_queryset(self):
         """Return the last five published questions."""
         return Post.objects.all()
+
+
+class DetailView(generic.DetailView):
+    model = Post
+    template_name = 'blog/post_detail.html'
+
 
 def post_list(request):
     posts = Post.objects.filter(published_date__lte=timezone.now()).order_by(
@@ -79,3 +85,63 @@ def post_edit(request, pk):
     else:
         form = PostForm(instance=post)
     return render(request, 'blog/post_edit.html', {'form': form})
+
+
+class PublisherList(generic.ListView):
+    model = Publisher
+    context_object_name = 'my_favorite_publishers'
+
+
+class PublisherDetail(generic.DetailView):
+    model = Publisher
+    context_object_name = 'publisher'
+    queryset = Publisher.objects.all()
+
+    def get_context_data(self, **kwargs):
+        # Call the base implementation first to get a context
+        context = super(PublisherDetail, self).get_context_data(**kwargs)
+        # Add in a QuerySet of all the books
+        context['book_list'] = Book.objects.all()
+        return context
+
+
+class BookList(generic.ListView):
+    queryset = Book.objects.order_by('-publication_date')
+    context_object_name = 'book_list'
+
+
+class AcmeBookList(generic.ListView):
+    context_object_name = 'book_list'
+    queryset = Book.objects.filter(publisher__name='Acme Publishing')
+    template_name = 'blog/acme_list.html'
+
+
+class PublisherBookList(generic.ListView):
+    template_name = 'blog/books_by_publisher.html'
+
+    def get_queryset(self):
+        self.publisher = get_object_or_404(Publisher,
+                                           name__contains=self.args[0])
+        return Book.objects.filter(publisher=self.publisher)
+
+    def get_context_data(self, **kwargs):
+        # Call the base implementation first to get a context
+        context = super(PublisherBookList, self).get_context_data(**kwargs)
+
+        # Add in the publisher
+        context['publisher'] = self.publisher
+        return context  ## Performing Extra Work
+
+
+class AuthorDetailView(DetailView):
+    queryset = Author.objects.all()
+
+    def get_object(self):
+        # Call the superclass
+        object = super(AuthorDetailView, self).get_object()
+
+        # Record the last accessed date
+        object.last_accessed = timezone.now()
+        object.save()
+        # Return the object
+        return object

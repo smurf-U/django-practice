@@ -1,1 +1,6 @@
-<li><a href="">{{ question.title }}</a></li>
+{% extends 'blog/base.html' %}
+{% block content %}
+{% for dr in object_list %}
+<li><a href="">{{ dr.title }}</a></li>
+{% endfor %}
+{% endblock %}
